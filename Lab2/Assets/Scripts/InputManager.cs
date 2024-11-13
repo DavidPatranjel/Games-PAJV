@@ -73,12 +73,17 @@ public class InputManager : MonoBehaviour
         Debug.Log($"Starting turn for {(gameController.IsPlayer1Turn ? "Player 1" : "Player 2")}");
         GetCharacter();
 
-        //if (!gameController.IsPlayer1Turn)
-        //{
-        //    StartCoroutine(SelectRandomMovesForPlayer2Coroutine());
-        //}
+        if (!gameController.IsPlayer1Turn)
+        {
+            StartCoroutine(StartStartCoroutine());
+            //StartCoroutine(SelectRandomMovesForPlayer2Coroutine());
+        }
     }
-
+    private IEnumerator StartStartCoroutine()
+    {
+        StartCoroutine(SelectRandomMovesForPlayer2Coroutine());
+        yield return new WaitForSeconds(1);
+    }
     private IEnumerator SelectRandomMovesForPlayer2Coroutine()
     {
         float delayTime = 0.5f; // Set the delay time between moves, adjust as necessary
