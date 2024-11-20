@@ -6,58 +6,103 @@ using System.Collections;
 
 public class HandleWebReq : MonoBehaviour
 {
-    // The URL of the API endpoint
-    private string apiUrl = "https://your-api-endpoint.com/getUserName";
+    private const string URL = "https://parseapi.back4app.com/users/me";
+    private const string AppId = "";
+    private const string ApiKey = "";
+
+    private string sessionToken;
 
     // Reference to the TMP_Text component to display the username
     public TMP_Text userNameText;
 
     void Start()
     {
-        // Check for command-line arguments
-        string[] args = Environment.GetCommandLineArgs();
+        // Retrieve session token from command-line arguments
+        sessionToken = GetSessionTokenFromArgs();
 
-        if (args.Length > 1)
+        if (string.IsNullOrEmpty(sessionToken))
         {
-            string userId = args[1];  // Assuming the user ID is passed as the first argument
-            Debug.Log("User ID: " + userId);
+            Debug.LogError("Session token not provided. Please pass it via command-line arguments.");
+            return;
+        }
 
-            // Make the HTTP request to fetch the authenticated user's name
-            StartCoroutine(FetchUserName(userId));
-        }
-        else
-        {
-            Debug.LogError("No user ID found in the command line arguments.");
-        }
+        // Start the coroutine to fetch user data
+        StartCoroutine(GetUserData());
     }
 
-    // Coroutine to fetch the user's name
-    private IEnumerator FetchUserName(string userId)
+    private string GetSessionTokenFromArgs()
     {
-        // Create the URL with the user ID (e.g., https://your-api-endpoint.com/getUserName?userId=123)
-        string urlWithParams = apiUrl + "?userId=" + userId;
+        // Fetch command-line arguments
+        string[] args = System.Environment.GetCommandLineArgs();
 
-        UnityWebRequest request = UnityWebRequest.Get(urlWithParams);
-
-        // Send the request and wait for the response
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
+        // Look for a specific argument format, e.g., --sessionToken=value
+        foreach (string arg in args)
         {
-            // If the request is successful, get the user name from the response
-            string userName = request.downloadHandler.text;
-            Debug.Log("Authenticated user name: " + userName);
-
-            // Update the UI text with the username
-            if (userNameText != null)
+            if (arg.StartsWith("--sessionToken="))
             {
-                userNameText.text = "Hello, " + userName + "!";
+                return arg.Substring("--sessionToken=".Length);
             }
         }
+
+        return null;
+    }
+
+    private IEnumerator GetUserData()
+    {
+        UnityWebRequest request = UnityWebRequest.Get(URL);
+
+        // Add necessary headers
+        request.SetRequestHeader("X-Parse-Application-Id", AppId);
+        request.SetRequestHeader("X-Parse-REST-API-Key", ApiKey);
+        request.SetRequestHeader("X-Parse-Session-Token", sessionToken);
+
+        // Send the request
+        yield return request.SendWebRequest();
+
+        // Check for errors
+        if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
+        {
+            Debug.LogError("Error: " + request.error);
+        }
         else
         {
-            // If there is an error, log the message
-            Debug.LogError("Request failed: " + request.error);
+            // Parse the JSON response
+            string jsonResponse = request.downloadHandler.text;
+            Debug.Log("User Data: " + jsonResponse);
+
+            try
+            {
+                // Deserialize the JSON response to a UserData object
+                var userData = JsonUtility.FromJson<UserData>(jsonResponse);
+
+                if (userData != null && !string.IsNullOrEmpty(userData.username))
+                {
+                    // Set the username in the TMP_Text component
+                    userNameText.text = $"Welcome, {userData.username}!";
+                }
+                else
+                {
+                    Debug.LogError("Username not found in the response.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"Failed to parse JSON response: {ex.Message}");
+            }
         }
     }
+
+
+}
+
+
+[System.Serializable]
+public class UserData
+{
+    public string username;       // Maps the "username" field
+    public string myCustomKeyName; // Maps the "myCustomKeyName" field
+    public string createdAt;      // Maps the "createdAt" field
+    public string updatedAt;      // Maps the "updatedAt" field
+    public string objectId;       // Maps the "objectId" field
+    public string sessionToken;   // Maps the "sessionToken" field
 }
